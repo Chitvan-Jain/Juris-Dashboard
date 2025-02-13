@@ -31,7 +31,7 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="flex h-screen bg-green-100">
+    <div className="flex h-screen bg-white">
       {/* Sidebar */}
       <div className="w-64 bg-white shadow-md p-4">
         <h1 className="text-xl font-semibold text-gray-800">Dashboard</h1>
