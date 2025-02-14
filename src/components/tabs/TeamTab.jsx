@@ -1,15 +1,18 @@
 "use client"
 import React from "react"
 import { useState, useEffect } from "react"
-import { PlusCircle, Search, Upload } from "lucide-react"
-import { collection, addDoc, getDocs } from "firebase/firestore"
+import { PlusCircle, Search, Upload, Edit, Trash2 } from "lucide-react"
+import { collection, addDoc, getDocs, doc, deleteDoc, updateDoc } from "firebase/firestore"
 import { db } from "../../firebase"
+
+const roles = ["Lawyer", "Paralegal", "Associate"]
 
 export default function TeamTab() {
   const [members, setMembers] = useState([])
   const [searchTerm, setSearchTerm] = useState("")
   const [filterRole, setFilterRole] = useState("")
   const [newMember, setNewMember] = useState({ name: "", role: "", Description: "" })
+  const [editingMember, setEditingMember] = useState(null)
 
   useEffect(() => {
     fetchMembers()
@@ -34,12 +37,32 @@ export default function TeamTab() {
   const handleSubmit = async (e) => {
     e.preventDefault()
     try {
-      const docRef = await addDoc(collection(db, "team_members"), newMember)
-      setMembers([...members, { id: docRef.id, ...newMember }])
+      if (editingMember) {
+        await updateDoc(doc(db, "team_members", editingMember.id), newMember)
+        setMembers(members.map((member) => (member.id === editingMember.id ? { ...member, ...newMember } : member)))
+        setEditingMember(null)
+      } else {
+        const docRef = await addDoc(collection(db, "team_members"), newMember)
+        setMembers([...members, { id: docRef.id, ...newMember }])
+      }
       setNewMember({ name: "", role: "", Description: "" })
     } catch (error) {
-      console.error("Error adding document: ", error)
+      console.error("Error adding/updating document: ", error)
     }
+  }
+
+  const handleDelete = async (id) => {
+    try {
+      await deleteDoc(doc(db, "team_members", id))
+      setMembers(members.filter((member) => member.id !== id))
+    } catch (error) {
+      console.error("Error deleting document: ", error)
+    }
+  }
+
+  const handleUpdate = (member) => {
+    setNewMember({ name: member.name, role: member.role, Description: member.Description })
+    setEditingMember(member)
   }
 
   const filteredMembers = members.filter(
@@ -72,15 +95,21 @@ export default function TeamTab() {
           <label htmlFor="role" className="block text-sm font-medium text-gray-700 mb-1">
             Role
           </label>
-          <input
-            type="text"
+          <select
             id="role"
             name="role"
             value={newMember.role}
             onChange={handleInputChange}
             required
             className="w-full rounded-md border-green-300 shadow-sm focus:border-green-300 focus:ring focus:ring-green-200 focus:ring-opacity-50"
-          />
+          >
+            <option value="">Select a role</option>
+            {roles.map((role) => (
+              <option key={role} value={role}>
+                {role}
+              </option>
+            ))}
+          </select>
         </div>
         <div className="flex-1 min-w-[200px]">
           <label htmlFor="Description" className="block text-sm font-medium text-gray-700 mb-1">
@@ -113,7 +142,7 @@ export default function TeamTab() {
           className="bg-green-800 hover:bg-green-700 text-white font-bold py-2 px-4 rounded inline-flex items-center"
         >
           <PlusCircle className="w-5 h-5 mr-2" />
-          Add Member
+          {editingMember ? "Update Member" : "Add Member"}
         </button>
       </form>
 
@@ -134,9 +163,11 @@ export default function TeamTab() {
           className="rounded-lg border border-gray-300 py-2 px-4 focus:outline-none focus:ring-2 focus:ring-indigo-400"
         >
           <option value="">All Roles</option>
-          <option value="Lawyer">Lawyer</option>
-          <option value="Paralegal">Paralegal</option>
-          <option value="Associate">Associate</option>
+          {roles.map((role) => (
+            <option key={role} value={role}>
+              {role}
+            </option>
+          ))}
         </select>
         <button className="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded inline-flex items-center">
           <Upload className="w-5 h-5 mr-2" />
@@ -153,19 +184,32 @@ export default function TeamTab() {
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Description
               </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Actions
+              </th>
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
             {filteredMembers.map((member) => (
-              <tr key={member.id}>
-                <td className="px-6 py-4 whitespace-nowrap">
+              <tr key={member.id} className="group">
+                <td className="px-6 py-4 whitespace-nowrap group-hover:bg-gray-100">
                   <div className="text-sm font-medium text-gray-900">{member.name}</div>
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap">
+                <td className="px-6 py-4 whitespace-nowrap group-hover:bg-gray-100">
                   <div className="text-sm text-gray-500">{member.role}</div>
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap">
+                <td className="px-6 py-4 whitespace-nowrap group-hover:bg-gray-100">
                   <div className="text-sm text-gray-500">{member.Description}</div>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium group-hover:bg-gray-100 flex">
+                  <button onClick={() => handleUpdate(member)} className="text-indigo-600 hover:text-indigo-900 mr-4">
+                    <Edit className="w-5 h-5 inline-block mr-1" />
+                    Edit
+                  </button>
+                  <button onClick={() => handleDelete(member.id)} className="text-red-600 hover:text-red-900">
+                    <Trash2 className="w-5 h-5 inline-block mr-1" />
+                    Delete
+                  </button>
                 </td>
               </tr>
             ))}
